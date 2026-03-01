@@ -64,7 +64,7 @@ README.md                      ← this file
 ## Hackathon Context
 
 **Event:** Vision Possible Hackathon — Blog Prize  
-**Prize:** $500 for best build story around Vision Agents by Stream  
+**Prize:** $300 for best build story around Vision Agents by Stream  
 **Author:** Anurag Sharma · CS Undergrad · SIRT Bhopal  
 **Project covered:** SignBridge — real-time ASL interpreter  
 **Tags:** `#VisionPossible` `#VisionAgents` `#BuildInPublic` `#Accessibility`
