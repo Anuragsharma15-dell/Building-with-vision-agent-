@@ -6,7 +6,7 @@ A fully self-contained HTML blog written by **Anurag Sharma** (SIRT Bhopal) for 
 
 ## About This Blog
 
-This is a single-file editorial-style blog post (`anurag-visionagent-blog.html`) written as a competition entry for the [$500 blog prize](https://visionagents.ai) offered as part of the Vision Possible Hackathon. It covers the full build story of SignBridge — the motivation, the architecture, the 72-hour timeline, results, and lessons learned — in a human, narrative style.
+This is a single-file editorial-style blog post (`anurag-visionagent-blog.html`) written as a competition entry for the [$300 blog prize](https://visionagents.ai) offered as part of the Vision Possible Hackathon. It covers the full build story of SignBridge — the motivation, the architecture, the 72-hour timeline, results, and lessons learned — in a human, narrative style.
 
 ---
 
