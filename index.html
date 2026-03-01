@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>SignBridge: How I Built a Real-Time Sign Language Interpreter with Vision Agents | Anurag Sharma</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --ink: #0d0d0d;
+    --paper: #f5f0e8;
+    --cream: #faf7f2;
+    --accent: #c84b11;
+    --accent2: #1a6b4a;
+    --accent3: #2d4a8a;
+    --muted: #6b6560;
+    --rule: #d4cfc7;
+    --code-bg: #1a1a2e;
+    --code-text: #e2e8f0;
+    --highlight: #fff3cd;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--cream);
+    color: var(--ink);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 17px;
+    line-height: 1.8;
+    overflow-x: hidden;
+  }
+
+  /* NOISE TEXTURE OVERLAY */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 999;
+    opacity: 0.4;
+  }
+
+  /* MASTHEAD */
+  .masthead {
+    background: var(--ink);
+    color: var(--paper);
+    padding: 18px 0;
+    text-align: center;
+    letter-spacing: 0.3em;
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    border-bottom: 3px double var(--accent);
+  }
+  .masthead span { color: var(--accent); }
+
+  /* HERO */
+  .hero {
+    background: var(--ink);
+    color: var(--paper);
+    position: relative;
+    overflow: hidden;
+    padding: 90px 24px 80px;
+  }
+
+  .hero-grid-lines {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(200,75,17,0.07) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(200,75,17,0.07) 1px, transparent 1px);
+    background-size: 60px 60px;
+  }
+
+  .hero-inner {
+    position: relative;
+    max-width: 860px;
+    margin: 0 auto;
+  }
+
+  .hero-tag {
+    display: inline-block;
+    background: var(--accent);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    padding: 5px 14px;
+    margin-bottom: 28px;
+    clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 100%, 8px 100%);
+  }
+
+  .hero h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(36px, 6vw, 72px);
+    font-weight: 900;
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    margin-bottom: 24px;
+  }
+
+  .hero h1 em {
+    font-style: italic;
+    color: var(--accent);
+  }
+
+  .hero-sub {
+    font-size: 19px;
+    color: #b0a99e;
+    font-weight: 300;
+    max-width: 620px;
+    line-height: 1.6;
+    margin-bottom: 40px;
+  }
+
+  .hero-meta {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+
+  .avatar {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent) 0%, #8b2500 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Playfair Display', serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: #fff;
+    border: 2px solid var(--accent);
+    flex-shrink: 0;
+  }
+
+  .hero-author {
+    color: var(--paper);
+  }
+
+  .hero-author strong {
+    display: block;
+    font-weight: 600;
+    font-size: 15px;
+  }
+
+  .hero-author span {
+    font-size: 12px;
+    color: #888;
+    letter-spacing: 0.05em;
+  }
+
+  .hero-stats {
+    display: flex;
+    gap: 24px;
+    margin-left: auto;
+    flex-wrap: wrap;
+  }
+
+  .hero-stat {
+    text-align: center;
+  }
+
+  .hero-stat strong {
+    display: block;
+    font-family: 'Playfair Display', serif;
+    font-size: 22px;
+    color: var(--accent);
+  }
+
+  .hero-stat span {
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: #777;
+  }
+
+  /* DECORATIVE DIVIDER */
+  .divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 48px 0;
+    color: var(--muted);
+    font-size: 11px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+  }
+  .divider::before, .divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--rule);
+  }
+
+  /* MAIN LAYOUT */
+  .container {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  .wide-container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  article {
+    padding: 64px 0;
+  }
+
+  /* TYPOGRAPHY */
+  h2 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(26px, 4vw, 40px);
+    font-weight: 700;
+    line-height: 1.15;
+    margin: 56px 0 20px;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+  }
+
+  h3 {
+    font-family: 'Playfair Display', serif;
+    font-size: 22px;
+    font-weight: 700;
+    margin: 40px 0 14px;
+    color: var(--ink);
+  }
+
+  p {
+    margin-bottom: 22px;
+    color: #2a2520;
+  }
+
+  /* DROPCAP */
+  .dropcap::first-letter {
+    font-family: 'Playfair Display', serif;
+    font-size: 5.5em;
+    font-weight: 900;
+    float: left;
+    line-height: 0.75;
+    margin: 6px 14px 0 0;
+    color: var(--accent);
+  }
+
+  /* PULLQUOTE */
+  .pullquote {
+    border-left: 5px solid var(--accent);
+    background: var(--paper);
+    padding: 28px 32px;
+    margin: 40px -32px;
+    font-family: 'Playfair Display', serif;
+    font-size: 22px;
+    font-style: italic;
+    line-height: 1.45;
+    color: var(--ink);
+    position: relative;
+  }
+
+  .pullquote::before {
+    content: '\201C';
+    font-size: 80px;
+    color: var(--accent);
+    opacity: 0.25;
+    position: absolute;
+    top: -10px;
+    left: 12px;
+    font-family: 'Playfair Display', serif;
+    line-height: 1;
+  }
+
+  .pullquote cite {
+    display: block;
+    font-size: 13px;
+    font-style: normal;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 500;
+    color: var(--muted);
+    margin-top: 14px;
+    letter-spacing: 0.05em;
+  }
+
+  /* CALLOUT BOX */
+  .callout {
+    border-radius: 2px;
+    padding: 22px 26px;
+    margin: 32px 0;
+    position: relative;
+    padding-left: 56px;
+  }
+  .callout::before {
+    position: absolute;
+    left: 18px;
+    top: 20px;
+    font-size: 22px;
+  }
+  .callout.tip { background: #e8f5f0; border-left: 3px solid var(--accent2); }
+  .callout.tip::before { content: '💡'; }
+  .callout.warning { background: #fff8e8; border-left: 3px solid #d4a017; }
+  .callout.warning::before { content: '⚠️'; }
+  .callout.info { background: #e8eef8; border-left: 3px solid var(--accent3); }
+  .callout.info::before { content: '📌'; }
+  .callout p { margin: 0; font-size: 15px; }
+  .callout strong { font-weight: 600; }
+
+
+
+  /* IMAGE PLACEHOLDER */
+  .img-block {
+    margin: 40px -20px;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .img-frame {
+    background: var(--ink);
+    padding: 0;
+    position: relative;
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .img-frame svg {
+    width: 100%;
+    display: block;
+  }
+
+  .img-caption {
+    font-size: 12px;
+    color: var(--muted);
+    text-align: center;
+    margin-top: 10px;
+    font-style: italic;
+    letter-spacing: 0.02em;
+  }
+
+  /* CHART SECTION */
+  .chart-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin: 40px 0;
+  }
+
+  @media(max-width: 640px) {
+    .chart-grid { grid-template-columns: 1fr; }
+    .pullquote { margin: 32px 0; }
+  }
+
+  .chart-card {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 24px;
+  }
+
+  .chart-card h4 {
+    font-family: 'Playfair Display', serif;
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    color: var(--ink);
+  }
+
+  .chart-card p {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 20px;
+    line-height: 1.4;
+  }
+
+  /* ARCHITECTURE DIAGRAM */
+  .arch-diagram {
+    background: var(--ink);
+    border-radius: 6px;
+    padding: 32px 24px;
+    margin: 40px 0;
+    overflow-x: auto;
+  }
+
+  .arch-diagram svg {
+    width: 100%;
+    min-width: 500px;
+    display: block;
+  }
+
+  /* TECH STACK GRID */
+  .tech-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 12px;
+    margin: 28px 0;
+  }
+
+  .tech-pill {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    padding: 12px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s;
+  }
+
+  .tech-pill:hover {
+    border-color: var(--accent);
+    background: #fff;
+    transform: translateY(-1px);
+  }
+
+  .tech-pill .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* TIMELINE */
+  .timeline {
+    position: relative;
+    padding-left: 36px;
+    margin: 32px 0;
+  }
+
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 10px;
+    top: 4px;
+    bottom: 4px;
+    width: 2px;
+    background: var(--rule);
+  }
+
+  .timeline-item {
+    position: relative;
+    margin-bottom: 32px;
+  }
+
+  .timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -32px;
+    top: 6px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 2px solid var(--cream);
+    box-shadow: 0 0 0 2px var(--accent);
+  }
+
+  .timeline-item .day {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 4px;
+  }
+
+  .timeline-item h4 {
+    font-family: 'Playfair Display', serif;
+    font-size: 17px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+
+  .timeline-item p {
+    font-size: 14px;
+    color: var(--muted);
+    margin: 0;
+    line-height: 1.6;
+  }
+
+  /* METRIC ROW */
+  .metric-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin: 40px 0;
+    background: var(--ink);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .metric-box {
+    padding: 28px 24px;
+    text-align: center;
+    border-right: 1px solid #222;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .metric-box:last-child { border-right: none; }
+
+  .metric-box::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(200,75,17,0.05) 0%, transparent 100%);
+  }
+
+  .metric-val {
+    font-family: 'Playfair Display', serif;
+    font-size: 42px;
+    font-weight: 900;
+    color: #fff;
+    line-height: 1;
+    margin-bottom: 6px;
+    position: relative;
+  }
+
+  .metric-val sup {
+    font-size: 0.45em;
+    color: var(--accent);
+    vertical-align: super;
+  }
+
+  .metric-label {
+    font-size: 10px;
+    color: #666;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    position: relative;
+  }
+
+  .metric-change {
+    font-size: 11px;
+    color: #4caf7d;
+    margin-top: 4px;
+    position: relative;
+  }
+
+  /* COMPARISON TABLE */
+  .compare-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 32px 0;
+    font-size: 14px;
+  }
+
+  .compare-table th {
+    background: var(--ink);
+    color: var(--paper);
+    padding: 14px 16px;
+    text-align: left;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    font-size: 12px;
+    text-transform: uppercase;
+  }
+
+  .compare-table th:first-child {
+    border-radius: 4px 0 0 0;
+  }
+
+  .compare-table th:last-child {
+    border-radius: 0 4px 0 0;
+  }
+
+  .compare-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: middle;
+  }
+
+  .compare-table tr:last-child td { border-bottom: none; }
+
+  .compare-table tr:nth-child(even) td { background: var(--paper); }
+
+  .check { color: var(--accent2); font-size: 16px; }
+  .cross { color: #cc3333; font-size: 16px; }
+  .partial { color: #d4a017; font-size: 16px; }
+
+  /* AUTHOR CARD */
+  .author-card {
+    background: var(--paper);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    padding: 32px;
+    display: flex;
+    gap: 24px;
+    margin: 60px 0 40px;
+    align-items: flex-start;
+  }
+
+  .author-avatar-lg {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent) 0%, #8b2500 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Playfair Display', serif;
+    font-size: 32px;
+    font-weight: 700;
+    color: #fff;
+    flex-shrink: 0;
+  }
+
+  .author-bio strong {
+    font-size: 18px;
+    font-family: 'Playfair Display', serif;
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  .author-bio .role {
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  .author-bio p {
+    font-size: 14px;
+    color: var(--muted);
+    margin: 0;
+    line-height: 1.7;
+  }
+
+  /* TAGS */
+  .tags {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin: 32px 0;
+  }
+
+  .tag {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 5px 12px;
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    color: var(--muted);
+    background: var(--paper);
+  }
+
+  .tag.featured {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  /* FOOTER */
+  footer {
+    background: var(--ink);
+    color: #555;
+    padding: 40px 24px;
+    text-align: center;
+    font-size: 12px;
+    letter-spacing: 0.05em;
+    border-top: 3px double var(--accent);
+  }
+
+  footer a { color: var(--accent); text-decoration: none; }
+
+  /* RUNNING HEAD */
+  .section-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.35em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 8px;
+    display: block;
+  }
+
+  /* HORIZONTAL RULE */
+  hr {
+    border: none;
+    border-top: 1px solid var(--rule);
+    margin: 48px 0;
+  }
+
+  /* Highlight */
+  mark {
+    background: var(--highlight);
+    padding: 1px 4px;
+    border-radius: 2px;
+  }
+
+  /* PROGRESS BAR CHART */
+  .bar-chart { margin: 16px 0 0; }
+  .bar-row { margin-bottom: 14px; }
+  .bar-label { font-size: 12px; font-weight: 500; margin-bottom: 4px; display: flex; justify-content: space-between; }
+  .bar-label span { color: var(--muted); font-weight: 400; }
+  .bar-track { background: var(--rule); border-radius: 2px; height: 8px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 2px; transition: width 1s ease; }
+
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+  article > * { animation: fadeIn 0.6s ease both; }
+</style>
+</head>
+<body>
+
+<!-- MASTHEAD -->
+<div class="masthead">
+  <span>Vision Possible Hackathon</span> · Dev Blog · March 2025 · #VisionAgents
+</div>
+
+<!-- HERO -->
+<header class="hero">
+  <div class="hero-grid-lines"></div>
+  <div class="hero-inner">
+    <div class="hero-tag">🏆 Hackathon Build Story</div>
+    <h1>How I Built <em>SignBridge</em> — a Real-Time Sign Language Interpreter with Vision Agents</h1>
+    <p class="hero-sub">72 hours, a lot of chai, and one open-source framework that genuinely changed how I think about multimodal AI</p>
+    <div class="hero-meta">
+      <div class="avatar">A</div>
+      <div class="hero-author">
+        <strong>Anurag Sharma</strong>
+        <span>CS Undergrad · MANIT Bhopal · Mar 15, 2025 · 18 min read</span>
+      </div>
+      <div class="hero-stats">
+        <div class="hero-stat"><strong>~480ms</strong><span>Avg Latency</span></div>
+        <div class="hero-stat"><strong>94.2%</strong><span>ASL Accuracy</span></div>
+        <div class="hero-stat"><strong>72h</strong><span>Built In</span></div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ARTICLE -->
+<article>
+<div class="container">
+
+  <!-- TAGS -->
+  <div class="tags">
+    <span class="tag featured">Vision Agents</span>
+    <span class="tag">Computer Vision</span>
+    <span class="tag">YOLO v8</span>
+    <span class="tag">Gemini</span>
+    <span class="tag">Sign Language</span>
+    <span class="tag">Accessibility</span>
+    <span class="tag">Hackathon</span>
+  </div>
+
+  <!-- INTRO -->
+  <span class="section-label">The Beginning</span>
+  <h2>It started with a conversation I couldn't have</h2>
+
+  <p class="dropcap">Last semester, my college placed a deaf student — I'll call him Rohit — in a few of my classes. Watching him navigate lectures, office hours, and lab sessions without an interpreter present most of the time was eye-opening in the worst way. He'd type slowly on his phone, show the screen to professors, and wait. The lag in that communication wasn't just inconvenient — it was isolating. I kept thinking: <em>surely there's a better way to fix this with technology.</em></p>
+
+  <p>So when the Vision Possible hackathon dropped in my inbox with the theme of building real-time AI agents, my idea was immediate. I wanted to build something that could watch hand signs and translate them into spoken words — in real time, with under 500ms delay. Not a research demo. An actual tool someone like Rohit could use sitting across a professor.</p>
+
+  <p>That project became <strong>SignBridge</strong>. And Vision Agents by Stream became the backbone that made it possible without a six-person team or an expensive GPU cluster.</p>
+
+  <div class="pullquote">
+    The thing about building for accessibility is that "good enough" isn't good enough. The latency has to be invisible. The accuracy has to be trustworthy. It has to actually work in messy real-world conditions.
+    <cite>— What I kept reminding myself at 2 AM on Day 1</cite>
+  </div>
+
+  <!-- PROJECT OVERVIEW VISUAL -->
+  <div class="img-block">
+    <div class="img-frame">
+      <svg viewBox="0 0 800 340" xmlns="http://www.w3.org/2000/svg">
+        <rect width="800" height="340" fill="#0d0d0d"/>
+        <!-- Grid -->
+        <defs>
+          <pattern id="g" width="40" height="40" patternUnits="userSpaceOnUse">
+            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(200,75,17,0.08)" stroke-width="0.5"/>
+          </pattern>
+        </defs>
+        <rect width="800" height="340" fill="url(#g)"/>
+        
+        <!-- Camera Feed Mockup -->
+        <rect x="40" y="50" width="200" height="240" rx="8" fill="#161616" stroke="#333" stroke-width="1.5"/>
+        <rect x="52" y="62" width="176" height="176" rx="4" fill="#1e1e1e"/>
+        <!-- Hand sketch -->
+        <ellipse cx="140" cy="150" rx="30" ry="40" fill="none" stroke="#c84b11" stroke-width="2" opacity="0.7"/>
+        <rect x="128" y="110" width="8" height="35" rx="4" fill="#c84b11" opacity="0.6"/>
+        <rect x="140" y="105" width="8" height="40" rx="4" fill="#c84b11" opacity="0.7"/>
+        <rect x="152" y="108" width="8" height="37" rx="4" fill="#c84b11" opacity="0.6"/>
+        <rect x="118" y="118" width="8" height="28" rx="4" fill="#c84b11" opacity="0.5"/>
+        <text x="140" y="258" fill="#555" text-anchor="middle" font-size="11" font-family="JetBrains Mono, monospace">webcam_feed.mp4</text>
+        <text x="140" y="275" fill="#c84b11" text-anchor="middle" font-size="10" font-family="JetBrains Mono, monospace">● LIVE · 30fps</text>
+        
+        <!-- Arrow 1 -->
+        <path d="M252 170 L300 170" stroke="#c84b11" stroke-width="2" marker-end="url(#arr)"/>
+        <defs>
+          <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="#c84b11"/>
+          </marker>
+        </defs>
+        <text x="276" y="162" fill="#555" text-anchor="middle" font-size="9" font-family="JetBrains Mono">frames</text>
+        
+        <!-- YOLO Box -->
+        <rect x="300" y="120" width="120" height="100" rx="6" fill="#1a1a2e" stroke="#2d4a8a" stroke-width="1.5"/>
+        <text x="360" y="148" fill="#82aaff" text-anchor="middle" font-si
